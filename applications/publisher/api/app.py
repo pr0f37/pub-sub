@@ -1,16 +1,19 @@
 import os
 
 import pika
+from api.config import (
+    rabbit_host,
+    rabbit_password,
+    rabbit_port,
+    rabbit_queue,
+    rabbit_username,
+)
+from api.tasks import celery_app
 from flask import Flask, request
 
 
 def create_app():
     app = Flask(__name__)
-    rabbit_host = os.environ.get("RABBIT_HOST")
-    rabbit_port = os.environ.get("RABBIT_PORT")
-    rabbit_username = os.environ.get("RABBIT_USERNAME")
-    rabbit_password = os.environ.get("RABBIT_PASSWORD")
-    rabbit_queue = os.environ.get("RABBIT_QUEUE", "hello")
 
     @app.route("/")
     def index():
@@ -42,5 +45,11 @@ def create_app():
         channel.basic_publish(exchange="", routing_key=rabbit_queue, body=msg)
         connection.close()
         return msg
+
+    @app.route("/task", methods=["POST"])
+    def publish_task():
+        msg = request.data
+        task = celery_app.send_task(name="applications.celery-consumer.tasks.hello")
+        return task
 
     return app
